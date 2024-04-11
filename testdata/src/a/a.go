@@ -1,6 +1,7 @@
 package a
 
 import (
+	"context"
 	"os"
 
 	"github.com/rs/zerolog"
@@ -86,8 +87,12 @@ func positives() {
 	f := &Foo{Bar: &Bar{}}
 	log.Info().Object("foo", f) // want "must be dispatched by Msg or Send method"
 
+	// custom logger not dispatched
+	CustomCTXError(context.Background()).AnErr("error", nil)
+
 	// logger instance not dispatched within other function
 	l := log.Info() // want "must be dispatched by Msg or Send method"
+
 	badDispatcher(l)
 }
 
@@ -177,9 +182,17 @@ func negatives() {
 	f := &Foo{Bar: &Bar{}}
 	log.Info().Object("foo", f).Msg("")
 
+	// custom logger not dispatched
+	CustomCTXError(context.Background()).AnErr("error", nil).Msg("")
+
 	// zerolog.Event dispatched within other function
 	l := log.Info()
+
 	goodDispatcher(l)
+}
+
+func CustomCTXError(ctx context.Context) *zerolog.Event {
+	return log.Error().Ctx(ctx)
 }
 
 type Marshaller interface {

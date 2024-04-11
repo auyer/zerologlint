@@ -38,7 +38,7 @@ type linter struct {
 	// Everytime the zerolog.Event is dispatched with Msg() or Send(),
 	// deletes that block from this set.
 	// At the end, check if the set is empty, or report the not dispatched block.
-	eventSet    map[posser]struct{}
+	eventSet map[posser]struct{}
 	// deleteLater holds the ssa block that should be deleted from eventSet after
 	// all the inspection is done.
 	// this is required because `else` ssa block comes after the dispatch of `if`` block.
@@ -90,7 +90,7 @@ func (l *linter) inspect(cd callDefer) {
 	// check if it's in github.com/rs/zerolog/log since there's some
 	// functions in github.com/rs/zerolog that returns zerolog.Event
 	// which should not be included. However, zerolog.Logger receiver is an exception.
-	if isInLogPkg(*c) || isLoggerRecv(*c) {
+	if isInLogPkg(*c) || isLoggerRecv(*c) || isCustomLoggerWithCTX(*c) {
 		if isZerologEvent(c.Value) {
 			// this ssa block should be dispatched afterwards at some point
 			l.eventSet[cd] = struct{}{}
@@ -206,6 +206,22 @@ func isInLogPkg(c ssa.CallCommon) bool {
 			return false
 		}
 		return strings.HasSuffix(p.Pkg.Path(), "github.com/rs/zerolog/log")
+	}
+	return false
+}
+
+func isCustomLoggerWithCTX(c ssa.CallCommon) bool {
+
+	switch f := c.Value.(type) {
+	case *ssa.Function:
+		returns := f.Signature.Results()
+		params := f.Signature.Params()
+
+		if returns != nil && returns.Len() > 0 && strings.Contains(returns.At(0).String(), "zerolog.Event") {
+			if params != nil && params.Len() > 0 && strings.Contains(params.At(0).String(), "context.Context") {
+				return true
+			}
+		}
 	}
 	return false
 }
